@@ -1,0 +1,159 @@
+//CODIGOOOOOOO
+
+#include <Arduino.h>
+#include <driver/ledc.h>
+
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
+#define canalPWM 9
+#define freqPWM 50
+#define resPWM 10
+#define pinPWM 23
+
+// Pines de los botones
+#define B1 12
+#define B2 5
+#define B3 19 // Botón B3 para seleccionar el LED o el modo de control del servo
+#define B4 21 // Botón B4 para ajustar el brillo
+
+//define leds
+#define ledR 15
+#define ledV 16
+#define ledA 18
+
+// Interrupciones
+// Para incrementar
+void IRAM_ATTR B1_isr() {
+  portENTER_CRITICAL_ISR(&mux);
+    for(int i=30; i<135; i++) {
+    ledcWrite(canalPWM, i);
+    }
+  portEXIT_CRITICAL_ISR(&mux);
+}
+// Para disminuir
+void IRAM_ATTR B2_isr() {
+  portENTER_CRITICAL_ISR(&mux);
+    for(int j=135; j>30; j--) {
+    ledcWrite(canalPWM, j);
+    }
+  portEXIT_CRITICAL_ISR(&mux);
+}
+
+// Variables para gestionar el brillo
+int brillo[3] = {0, 0, 0}; // Almacenará el brillo actual de cada LED
+int color = 0; // 0: Rojo, 1: Verde, 2: Azul
+
+// Variables para gestionar los botones
+int B_color = LOW;
+int B_brillo = LOW;
+
+// Variables para el servo
+int servoPosition = 30; // Posición inicial del servo
+bool controlServo = false; // Flag para alternar entre controlar el servo o los LEDs
+
+void setup() {
+  ledcSetup(canalPWM, freqPWM, resPWM);
+  ledcAttachPin(pinPWM, canalPWM);
+
+  pinMode(B1, INPUT_PULLDOWN);
+  pinMode(B2, INPUT_PULLUP);
+  ledcWrite(canalPWM, 0);
+  attachInterrupt(B1, B1_isr, RISING);
+  attachInterrupt(B2, B2_isr, FALLING);
+
+  // Configuración de pines de salida para los LEDs
+  pinMode(ledR, OUTPUT);
+  pinMode(ledV, OUTPUT);
+  pinMode(ledA, OUTPUT);
+
+ // Configuración de pines de entrada para los botones
+  pinMode(B3, INPUT_PULLUP);
+  pinMode(B4, INPUT_PULLUP);
+
+  // Configuración inicial de PWM en los pines de los LEDs
+  ledcSetup(0, 5000, 8); // Canal 0 para el LED rojo
+  ledcAttachPin(ledR, 0);
+  ledcSetup(1, 5000, 8); // Canal 1 para el LED verde
+  ledcAttachPin(ledV, 1);
+  ledcSetup(2, 5000, 8); // Canal 2 para el LED azul
+  ledcAttachPin(ledA, 2);
+
+  // Configuración inicial del servo
+  ledcWrite(canalPWM, servoPosition);
+}
+
+
+void loop() {
+  delay(100);
+// Leer el estado de los botones
+  int S_color = digitalRead(B3);
+  int S_brillo = digitalRead(B4);
+
+// Si se presiona el botón de selección (B3)
+  if (S_color == LOW && B_color == HIGH) {
+    if (!controlServo) {
+      color = (color + 1) % 4; // Cambiar al siguiente LED
+      if (color==3) {
+        for(int i=30; i<135; i++) {
+          ledcWrite(canalPWM, i);
+          if (i < 65) {
+            brillo[0] = 255; // Rojo
+            brillo[1] = 0;
+            brillo[2] = 0;
+          } else if (i < 100) {
+            brillo[0] = 0;
+            brillo[1] = 255; // Verde
+            brillo[2] = 0;
+          } else {
+            brillo[0] = 0;
+            brillo[1] = 0;
+            brillo[2] = 255; // Azul
+          }
+          // Actualizar el PWM de los LEDs
+          ledcWrite(0, brillo[0]); // PWM del LED rojo
+          ledcWrite(1, brillo[1]); // PWM del LED verde
+          ledcWrite(2, brillo[2]); // PWM del LED azul
+          delay(100);
+        }
+        for(int i=135; i>30; i--) {
+          ledcWrite(canalPWM, i);
+          if (i < 65) {
+            brillo[0] = 255; // Rojo
+            brillo[1] = 0;
+            brillo[2] = 0;
+          } else if (i < 100) {
+            brillo[0] = 0;
+            brillo[1] = 255; // Verde
+            brillo[2] = 0;
+          } else {
+            brillo[0] = 0;
+            brillo[1] = 0;
+            brillo[2] = 255; // Azul
+          }
+            // Actualizar el PWM de los LEDs
+          ledcWrite(0, brillo[0]); // PWM del LED rojo
+          ledcWrite(1, brillo[1]); // PWM del LED verde
+          ledcWrite(2, brillo[2]); // PWM del LED azul
+          delay(100);
+        }
+      }
+    }
+  }
+  B_color = S_color;
+
+  // Si se presiona el botón de brillo (B4) en modo de control de LEDs
+  if (!controlServo && S_brillo == LOW && B_brillo == HIGH) {
+    brillo[color] += 32; // Incrementar el brillo en 32 unidades (de 0 a 255)
+    if (brillo[color] > 255) {
+      brillo[color] = 0; // Volver a cero cuando alcanza el máximo
+    }
+  }
+  B_brillo = S_brillo;
+
+
+  // Actualizar el PWM de los LEDs
+  ledcWrite(0, brillo[0]); // PWM del LED rojo
+  ledcWrite(1, brillo[1]); // PWM del LED verde
+  ledcWrite(2, brillo[2]); // PWM del LED azul
+
+}
