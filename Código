@@ -1,5 +1,8 @@
-//CODIGOOOOOOO
-
+//Universidad del valle 
+//Jose Aguilar y Andrea Samayoa 
+// Electrónica Digital 2 
+// Profesora: Joseline Ortiz 
+// Auxiliar: Rodolfo Urizar 
 #include <Arduino.h>
 #include <driver/ledc.h>
 
